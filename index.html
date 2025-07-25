@@ -26,14 +26,6 @@
 
     <div class="items-grid" id="items-container">
       <!-- Карточки будут добавляться через JS -->
-      
-      <!-- Пустая карточка для добавления -->
-      <div class="item-card add-item" onclick="showAddForm()">
-        <div class="add-icon">
-          <i class="fas fa-plus"></i>
-        </div>
-        <p>Добавить предмет</p>
-      </div>
     </div>
 
     <!-- Форма добавления -->
@@ -41,12 +33,35 @@
       <div class="form-content">
         <span class="close-btn" onclick="hideAddForm()">&times;</span>
         <h3>Добавить новый предмет</h3>
-        <input type="text" id="itemName" placeholder="Название">
-        <select id="itemCategory">
-          <option value="garage">Гараж</option>
-          <option value="garden">Сад</option>
-          <option value="living-room">Гостиная</option>
-        </select>
+        
+        <div class="add-methods">
+          <button class="method-btn active" onclick="setAddMethod('manual')">
+            <i class="fas fa-keyboard"></i> Вручную
+          </button>
+          <button class="method-btn" onclick="setAddMethod('camera')">
+            <i class="fas fa-camera"></i> Сканировать
+          </button>
+        </div>
+
+        <div id="manualForm">
+          <input type="text" id="itemName" placeholder="Название">
+          <select id="itemCategory">
+            <option value="garage">Гараж</option>
+            <option value="garden">Сад</option>
+            <option value="living-room">Гостиная</option>
+          </select>
+        </div>
+
+        <div id="cameraForm" style="display:none;">
+          <div class="camera-preview" id="cameraPreview">
+            <video id="video" width="100%" autoplay></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+          </div>
+          <button onclick="capturePhoto()" class="capture-btn">
+            <i class="fas fa-camera"></i> Сфотографировать
+          </button>
+        </div>
+
         <button onclick="addNewItem()">Добавить</button>
       </div>
     </div>
