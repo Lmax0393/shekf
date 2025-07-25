@@ -1,37 +1,54 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Моя виртуальная полка</title>
+  <title>Моя виртуальная коллекция</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="header">
-    <h1>🏠 Моя виртуальная полка</h1>
-    <p>Добавляйте предметы в свои комнаты!</p>
-  </div>
+  <div class="app-container">
+    <header>
+      <h1><i class="fas fa-store"></i> Моя коллекция</h1>
+      <div class="search-bar">
+        <input type="text" placeholder="Поиск предметов...">
+        <i class="fas fa-search"></i>
+      </div>
+    </header>
 
-  <div class="rooms-container">
-    <!-- Комната 1 -->
-    <div class="room" id="garage">
-      <h2>🚗 Гараж</h2>
-      <div class="items-list" id="garage-items"></div>
-      <button onclick="addItem('garage')">+ Добавить</button>
+    <div class="categories">
+      <button class="active">Все</button>
+      <button>Гараж</button>
+      <button>Сад</button>
+      <button>Гостиная</button>
     </div>
 
-    <!-- Комната 2 -->
-    <div class="room" id="garden">
-      <h2>🌿 Сад</h2>
-      <div class="items-list" id="garden-items"></div>
-      <button onclick="addItem('garden')">+ Добавить</button>
+    <div class="items-grid" id="items-container">
+      <!-- Карточки будут добавляться через JS -->
+      
+      <!-- Пустая карточка для добавления -->
+      <div class="item-card add-item" onclick="showAddForm()">
+        <div class="add-icon">
+          <i class="fas fa-plus"></i>
+        </div>
+        <p>Добавить предмет</p>
+      </div>
     </div>
 
-    <!-- Комната 3 -->
-    <div class="room" id="living-room">
-      <h2>🛋️ Гостиная</h2>
-      <div class="items-list" id="living-room-items"></div>
-      <button onclick="addItem('living-room')">+ Добавить</button>
+    <!-- Форма добавления -->
+    <div class="add-form" id="addForm">
+      <div class="form-content">
+        <span class="close-btn" onclick="hideAddForm()">&times;</span>
+        <h3>Добавить новый предмет</h3>
+        <input type="text" id="itemName" placeholder="Название">
+        <select id="itemCategory">
+          <option value="garage">Гараж</option>
+          <option value="garden">Сад</option>
+          <option value="living-room">Гостиная</option>
+        </select>
+        <button onclick="addNewItem()">Добавить</button>
+      </div>
     </div>
   </div>
 
