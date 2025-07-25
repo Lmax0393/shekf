@@ -53,10 +53,11 @@
         </div>
 
         <div id="cameraForm" style="display:none;">
-          <div class="camera-preview" id="cameraPreview">
-            <video id="video" autoplay playsinline></video>
-            <canvas id="canvas" style="display:none;"></canvas>
-          </div>
+          <!-- В блоке camera-preview -->
+            <div class="camera-preview" id="cameraPreview">
+              <video id="video" autoplay playsinline muted></video>
+              <canvas id="canvas" style="display:none;"></canvas>
+            </div>
           <button onclick="capturePhoto()" class="capture-btn">
             <i class="fas fa-camera"></i> Сфотографировать
           </button>
