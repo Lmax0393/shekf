@@ -1,23 +1,12 @@
 // Коллекция предметов
-let items = [
-  // Примеры предметов (можно удалить)
-  {
-    id: 1,
-    name: "Старинная лампа",
-    category: "living-room",
-    image: "https://via.placeholder.com/300x200?text=Лампа"
-  },
-  {
-    id: 2,
-    name: "Садовые ножницы",
-    category: "garden",
-    image: "https://via.placeholder.com/300x200?text=Ножницы"
-  }
-];
+let items = [];
+let currentAddMethod = 'manual';
+let capturedPhoto = null;
 
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', () => {
   renderItems();
+  initCamera();
   
   // Инициализация Telegram Web App
   if (window.Telegram && Telegram.WebApp) {
@@ -26,7 +15,92 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Отображение всех предметов
+// Инициализация камеры
+function initCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.warn("Камера не поддерживается");
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+    })
+    .catch(err => {
+      console.error("Ошибка доступа к камере:", err);
+      alert("Не удалось получить доступ к камере");
+    });
+}
+
+// Сделать фото
+function capturePhoto() {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('2d');
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  capturedPhoto = canvas.toDataURL('image/jpeg');
+  alert("Фото сделано! Теперь нажмите 'Добавить'");
+}
+
+// Установить метод добавления
+function setAddMethod(method) {
+  currentAddMethod = method;
+  document.querySelectorAll('.method-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  event.target.classList.add('active');
+
+  document.getElementById('manualForm').style.display = method === 'manual' ? 'block' : 'none';
+  document.getElementById('cameraForm').style.display = method === 'camera' ? 'block' : 'none';
+}
+
+// Добавить новый предмет
+function addNewItem() {
+  if (currentAddMethod === 'camera' && !capturedPhoto) {
+    alert("Сначала сделайте фото!");
+    return;
+  }
+
+  let name, category;
+  
+  if (currentAddMethod === 'manual') {
+    name = document.getElementById('itemName').value.trim();
+    category = document.getElementById('itemCategory').value;
+  } else {
+    // Автогенерация названия для сканированных предметов
+    name = "Объект #" + (items.length + 1);
+    category = document.getElementById('itemCategory').value;
+  }
+
+  if (currentAddMethod === 'manual' && !name) {
+    alert("Пожалуйста, введите название предмета");
+    return;
+  }
+
+  const newItem = {
+    id: Date.now(),
+    name: name,
+    category: category,
+    image: currentAddMethod === 'camera' ? capturedPhoto : 
+          'https://via.placeholder.com/300x200?text=' + encodeURIComponent(name)
+  };
+
+  items.push(newItem);
+  renderItems();
+  hideAddForm();
+  
+  // Сброс формы
+  document.getElementById('itemName').value = '';
+  capturedPhoto = null;
+}
+
+// Остальные функции (renderItems, showAddForm, hideAddForm, фильтрация)
+// остаются такими же как в предыдущей версии
 function renderItems(filterCategory = 'all') {
   const container = document.getElementById('items-container');
   container.innerHTML = '';
