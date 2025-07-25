@@ -56,43 +56,55 @@ function setupEventListeners() {
   });
 }
 
-// Работа с камерой
-const Camera = {
-  async init() {
+// Состояние камеры
+const CameraManager = {
+  stream: null,
+  
+  async start() {
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Камера не поддерживается в вашем браузере');
-      }
-
-      const constraints = {
+      // Останавливаем предыдущий поток, если есть
+      await this.stop();
+      
+      // Получаем доступ к камере
+      this.stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
           width: { ideal: 1280 },
           height: { ideal: 720 }
-        }
-      };
-
-      AppState.cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-      DOM.videoElement.srcObject = AppState.cameraStream;
+        },
+        audio: false
+      });
       
-      return true;
+      const video = document.getElementById('video');
+      video.srcObject = this.stream;
+      
+      // Ждем, пока видео начнет воспроизводиться
+      return new Promise((resolve) => {
+        video.onplaying = () => {
+          video.onplaying = null;
+          resolve(true);
+        };
+      });
+      
     } catch (error) {
-      console.error('Ошибка инициализации камеры:', error);
-      alert(`Не удалось получить доступ к камере: ${error.message}`);
+      console.error('Camera error:', error);
+      this.showCameraError();
       return false;
     }
   },
-
-  capture() {
-    if (!AppState.cameraStream) {
-      alert('Сначала активируйте камеру');
-      return null;
+  
+  async stop() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
     }
-
-    const video = DOM.videoElement;
-    const canvas = DOM.canvasElement;
+  },
+  
+  capture() {
+    const video = document.getElementById('video');
+    const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
-
+    
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
@@ -100,17 +112,75 @@ const Camera = {
     context.translate(canvas.width, 0);
     context.scale(-1, 1);
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
+    
     return canvas.toDataURL('image/jpeg');
   },
-
-  stop() {
-    if (AppState.cameraStream) {
-      AppState.cameraStream.getTracks().forEach(track => track.stop());
-      AppState.cameraStream = null;
-    }
+  
+  showCameraError() {
+    const preview = document.getElementById('cameraPreview');
+    preview.innerHTML = `
+      <div class="camera-fallback">
+        <i class="fas fa-camera-slash"></i>
+        <p>Не удалось запустить камеру</p>
+        <button onclick="CameraManager.start()">Попробовать снова</button>
+        <button onclick="useFileUpload()">Загрузить фото</button>
+      </div>
+    `;
   }
 };
+
+// Альтернатива - загрузка файла
+function useFileUpload() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        AppState.capturedPhoto = event.target.result;
+        updatePhotoPreview();
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  input.click();
+}
+
+// Превью фотографии
+function updatePhotoPreview() {
+  document.getElementById('cameraPreview').innerHTML = `
+    <img src="${AppState.capturedPhoto}" class="photo-preview">
+    <button onclick="retakePhoto()" class="retake-btn">
+      <i class="fas fa-redo"></i> Сделать новый снимок
+    </button>
+  `;
+}
+
+// Переснять фото
+function retakePhoto() {
+  document.getElementById('cameraPreview').innerHTML = `
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+  `;
+  CameraManager.start();
+}
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', () => {
+  // Ваша остальная инициализация
+  
+  // Для тестирования камеры добавьте:
+  setTimeout(() => {
+    if (!CameraManager.stream) {
+      CameraManager.showCameraError();
+    }
+  }, 2000);
+});
 
 // Управление интерфейсом
 const UI = {
