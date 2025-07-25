@@ -1,194 +1,252 @@
-// Коллекция предметов
-let items = [];
-let currentAddMethod = 'manual';
-let capturedPhoto = null;
+// Состояние приложения
+const AppState = {
+  items: [],
+  currentAddMethod: 'manual',
+  capturedPhoto: null,
+  cameraStream: null,
+  currentCategory: 'all'
+};
 
-// Инициализация при загрузке
-document.addEventListener('DOMContentLoaded', () => {
+// Константы
+const CATEGORY_NAMES = {
+  'garage': 'Гараж',
+  'garden': 'Сад',
+  'living-room': 'Гостиная'
+};
+
+// DOM элементы
+const DOM = {
+  itemsContainer: document.getElementById('items-container'),
+  addForm: document.getElementById('addForm'),
+  manualForm: document.getElementById('manualForm'),
+  cameraForm: document.getElementById('cameraForm'),
+  videoElement: document.getElementById('video'),
+  canvasElement: document.getElementById('canvas'),
+  itemNameInput: document.getElementById('itemName'),
+  itemCategorySelect: document.getElementById('itemCategory'),
+  categoryButtons: document.querySelectorAll('.categories button')
+};
+
+// Инициализация приложения
+function initApp() {
   renderItems();
-  initCamera();
+  setupEventListeners();
   
-  // Инициализация Telegram Web App
   if (window.Telegram && Telegram.WebApp) {
     Telegram.WebApp.expand();
     Telegram.WebApp.MainButton.setText("Сохранить").show();
   }
-});
+}
 
-// Инициализация камеры
-function initCamera() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    console.warn("Камера не поддерживается");
-    return;
-  }
-
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(stream => {
-      const video = document.getElementById('video');
-      video.srcObject = stream;
-    })
-    .catch(err => {
-      console.error("Ошибка доступа к камере:", err);
-      alert("Не удалось получить доступ к камере");
+// Настройка обработчиков событий
+function setupEventListeners() {
+  // Фильтрация по категориям
+  DOM.categoryButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      DOM.categoryButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      const category = btn.textContent === 'Все' ? 'all' : 
+                      btn.textContent === 'Гараж' ? 'garage' :
+                      btn.textContent === 'Сад' ? 'garden' : 'living-room';
+      
+      AppState.currentCategory = category;
+      renderItems();
     });
-}
-
-// Сделать фото
-function capturePhoto() {
-  const video = document.getElementById('video');
-  const canvas = document.getElementById('canvas');
-  const context = canvas.getContext('2d');
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  capturedPhoto = canvas.toDataURL('image/jpeg');
-  alert("Фото сделано! Теперь нажмите 'Добавить'");
-}
-
-// Установить метод добавления
-function setAddMethod(method) {
-  currentAddMethod = method;
-  document.querySelectorAll('.method-btn').forEach(btn => {
-    btn.classList.remove('active');
   });
-  event.target.classList.add('active');
-
-  document.getElementById('manualForm').style.display = method === 'manual' ? 'block' : 'none';
-  document.getElementById('cameraForm').style.display = method === 'camera' ? 'block' : 'none';
 }
 
-// Добавить новый предмет
-function addNewItem() {
-  if (currentAddMethod === 'camera' && !capturedPhoto) {
-    alert("Сначала сделайте фото!");
-    return;
+// Работа с камерой
+const Camera = {
+  async init() {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Камера не поддерживается в вашем браузере');
+      }
+
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      AppState.cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+      DOM.videoElement.srcObject = AppState.cameraStream;
+      
+      return true;
+    } catch (error) {
+      console.error('Ошибка инициализации камеры:', error);
+      alert(`Не удалось получить доступ к камере: ${error.message}`);
+      return false;
+    }
+  },
+
+  capture() {
+    if (!AppState.cameraStream) {
+      alert('Сначала активируйте камеру');
+      return null;
+    }
+
+    const video = DOM.videoElement;
+    const canvas = DOM.canvasElement;
+    const context = canvas.getContext('2d');
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Зеркальное отображение для фронтальной камеры
+    context.translate(canvas.width, 0);
+    context.scale(-1, 1);
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    return canvas.toDataURL('image/jpeg');
+  },
+
+  stop() {
+    if (AppState.cameraStream) {
+      AppState.cameraStream.getTracks().forEach(track => track.stop());
+      AppState.cameraStream = null;
+    }
+  }
+};
+
+// Управление интерфейсом
+const UI = {
+  showAddForm() {
+    DOM.addForm.style.display = 'flex';
+  },
+
+  hideAddForm() {
+    DOM.addForm.style.display = 'none';
+    Camera.stop();
+  },
+
+  setAddMethod(method) {
+    AppState.currentAddMethod = method;
+    document.querySelectorAll('.method-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    DOM.manualForm.style.display = method === 'manual' ? 'block' : 'none';
+    DOM.cameraForm.style.display = method === 'camera' ? 'block' : 'none';
+
+    if (method === 'camera') {
+      Camera.init();
+    } else {
+      Camera.stop();
+    }
+  },
+
+  renderItems() {
+    DOM.itemsContainer.innerHTML = '';
+
+    const filteredItems = AppState.currentCategory === 'all' 
+      ? AppState.items 
+      : AppState.items.filter(item => item.category === AppState.currentCategory);
+
+    if (filteredItems.length === 0) {
+      DOM.itemsContainer.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-box-open"></i>
+          <p>Пока нет предметов</p>
+        </div>
+      `;
+      return;
+    }
+
+    filteredItems.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div class="item-image">
+          <img src="${item.image}" alt="${item.name}" 
+               onerror="this.src='https://via.placeholder.com/300x200?text=Нет+фото'">
+        </div>
+        <div class="item-info">
+          <h3 class="item-title">${item.name}</h3>
+          <div class="item-category">${CATEGORY_NAMES[item.category]}</div>
+          <div class="item-actions">
+            <button class="delete-btn" data-id="${item.id}">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      DOM.itemsContainer.appendChild(card);
+    });
+
+    // Кнопка добавления
+    const addCard = document.createElement('div');
+    addCard.className = 'item-card add-item';
+    addCard.onclick = UI.showAddForm;
+    addCard.innerHTML = `
+      <div class="add-icon">
+        <i class="fas fa-plus"></i>
+      </div>
+      <p>Добавить предмет</p>
+    `;
+    DOM.itemsContainer.appendChild(addCard);
+
+    // Назначение обработчиков удаления
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.id);
+        AppState.items = AppState.items.filter(item => item.id !== id);
+        UI.renderItems();
+      });
+    });
+  }
+};
+
+// Обработка добавления предметов
+function handleAddItem() {
+  if (AppState.currentAddMethod === 'camera') {
+    AppState.capturedPhoto = Camera.capture();
+    if (!AppState.capturedPhoto) return;
   }
 
   let name, category;
   
-  if (currentAddMethod === 'manual') {
-    name = document.getElementById('itemName').value.trim();
-    category = document.getElementById('itemCategory').value;
+  if (AppState.currentAddMethod === 'manual') {
+    name = DOM.itemNameInput.value.trim();
+    if (!name) {
+      alert('Пожалуйста, введите название предмета');
+      return;
+    }
   } else {
-    // Автогенерация названия для сканированных предметов
-    name = "Объект #" + (items.length + 1);
-    category = document.getElementById('itemCategory').value;
+    name = `Объект #${AppState.items.length + 1}`;
   }
 
-  if (currentAddMethod === 'manual' && !name) {
-    alert("Пожалуйста, введите название предмета");
-    return;
-  }
+  category = DOM.itemCategorySelect.value;
 
   const newItem = {
     id: Date.now(),
     name: name,
     category: category,
-    image: currentAddMethod === 'camera' ? capturedPhoto : 
-          'https://via.placeholder.com/300x200?text=' + encodeURIComponent(name)
+    image: AppState.currentAddMethod === 'camera' 
+      ? AppState.capturedPhoto 
+      : `https://via.placeholder.com/300x200?text=${encodeURIComponent(name)}`
   };
 
-  items.push(newItem);
-  renderItems();
-  hideAddForm();
+  AppState.items.push(newItem);
+  UI.renderItems();
+  UI.hideAddForm();
   
   // Сброс формы
-  document.getElementById('itemName').value = '';
-  capturedPhoto = null;
+  DOM.itemNameInput.value = '';
+  AppState.capturedPhoto = null;
 }
 
-// Остальные функции (renderItems, showAddForm, hideAddForm, фильтрация)
-// остаются такими же как в предыдущей версии
-function renderItems(filterCategory = 'all') {
-  const container = document.getElementById('items-container');
-  container.innerHTML = '';
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+  // Назначение глобальных обработчиков
+  document.querySelector('.close-btn').addEventListener('click', UI.hideAddForm);
+  document.querySelector('#addForm button').addEventListener('click', handleAddItem);
   
-  // Фильтрация по категории
-  const filteredItems = filterCategory === 'all' 
-    ? items 
-    : items.filter(item => item.category === filterCategory);
-  
-  // Рендер карточек
-  filteredItems.forEach(item => {
-    const categoryNames = {
-      'garage': 'Гараж',
-      'garden': 'Сад',
-      'living-room': 'Гостиная'
-    };
-    
-    const card = document.createElement('div');
-    card.className = 'item-card';
-    card.innerHTML = `
-      <div class="item-image">
-        <img src="${item.image}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/300x200?text=Нет+фото'">
-      </div>
-      <div class="item-info">
-        <h3 class="item-title">${item.name}</h3>
-        <div class="item-category">${categoryNames[item.category]}</div>
-        <div class="item-actions">
-          <span class="item-price">Детали</span>
-          <i class="fas fa-ellipsis-v"></i>
-        </div>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-  
-  // Добавляем кнопку "Добавить" в конец
-  const addCard = document.createElement('div');
-  addCard.className = 'item-card add-item';
-  addCard.onclick = showAddForm;
-  addCard.innerHTML = `
-    <div class="add-icon">
-      <i class="fas fa-plus"></i>
-    </div>
-    <p>Добавить предмет</p>
-  `;
-  container.appendChild(addCard);
-}
-
-// Показать форму добавления
-function showAddForm() {
-  document.getElementById('addForm').style.display = 'flex';
-}
-
-// Скрыть форму добавления
-function hideAddForm() {
-  document.getElementById('addForm').style.display = 'none';
-}
-
-// Добавить новый предмет
-function addNewItem() {
-  const name = document.getElementById('itemName').value.trim();
-  const category = document.getElementById('itemCategory').value;
-  
-  if (name) {
-    const newItem = {
-      id: Date.now(),
-      name: name,
-      category: category,
-      image: 'https://via.placeholder.com/300x200?text=' + encodeURIComponent(name)
-    };
-    
-    items.push(newItem);
-    renderItems();
-    hideAddForm();
-    document.getElementById('itemName').value = '';
-  } else {
-    alert('Пожалуйста, введите название предмета');
-  }
-}
-
-// Фильтрация по категориям
-document.querySelectorAll('.categories button').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelector('.categories button.active').classList.remove('active');
-    this.classList.add('active');
-    const category = this.textContent === 'Все' ? 'all' : 
-                    this.textContent === 'Гараж' ? 'garage' :
-                    this.textContent === 'Сад' ? 'garden' : 'living-room';
-    renderItems(category);
-  });
+  // Инициализация приложения
+  initApp();
 });
